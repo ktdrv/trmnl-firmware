@@ -311,13 +311,19 @@ wl_status_t waitForConnectResult(uint32_t timeout, const WifiEventData &eventDat
     if (eventData.gotIp) {
       return WL_CONNECTED;
     }
-    if (eventData.disconnected) {
+    // A STA_DISCONNECTED mid-join is not final: on a first connect the Arduino core retries by
+    // itself after NO_AP_FOUND, handshake timeout and similar, so keep waiting, as 1.8.15 did.
+    // Only WL_CONNECT_FAILED (e.g. a wrong password) ends the attempt early.
+    if (WiFi.status() == WL_CONNECT_FAILED) {
       Log_info("WiFi: connect attempt failed, reason: %s", WiFi.disconnectReasonName(eventData.disconnectReason));
       return WL_CONNECT_FAILED;
     }
     delay(100);
   }
 
+  if (eventData.disconnected) {
+    Log_info("WiFi: last disconnect reason: %s", WiFi.disconnectReasonName(eventData.disconnectReason));
+  }
   Log_info("WiFi: connect timed out after %d ms", timeout);
   return WL_DISCONNECTED;
 }
